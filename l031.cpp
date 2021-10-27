@@ -197,6 +197,52 @@ public:
 
 };
 
+class PointDistance {
+	Point p1;
+	Point p2;
+	double distance;
+
+public:
+	PointDistance(Point p1, Point p2, double distance) {
+		this->p1 = p1;
+		this->p2 = p2;
+		this->distance = distance;
+	}
+
+	Point get_p1() {
+		return p1;
+	}
+
+	void set_p1(Point p1) {
+		this->p1 = p1;
+	}
+
+	Point get_p2() {
+		return p2;
+	}
+
+	void set_p2(Point p2) {
+		this->p2 = p2;
+	}
+
+	double get_distance() {
+		return distance;
+	}
+
+	void set_distance(double distance) {
+		this->distance = distance;
+	}
+
+	PointDistance min(PointDistance other) {
+		if (distance < other.get_distance()) {
+			return PointDistance(p1, p2, distance);
+		}
+
+		return other;
+	}
+
+};
+
 int pixels[800][800][3];
 int size = (int) sizeof(pixels) / sizeof(pixels[0]);
 
@@ -360,9 +406,9 @@ list<Point> get_closest_points_bruteforce(list<Point> points) {
 	return closest_points;
 }
 
-double get_min_dist_bruteforce(vector<Point> points) {
-	list<Point> closest_points;
+PointDistance get_min_dist_bruteforce(vector<Point> points) {
 	double min_distance = DBL_MAX;
+	Point closest1, closest2;
 
 	unordered_set<string> visited;
 
@@ -377,6 +423,9 @@ double get_min_dist_bruteforce(vector<Point> points) {
 
 				if (distance < min_distance) {
 					min_distance = distance;
+
+					closest1 = points[i];
+					closest2 = points[j];
 				}
 
 				visited.insert(reversed.get_display_string());
@@ -384,7 +433,7 @@ double get_min_dist_bruteforce(vector<Point> points) {
 		}
 	}
 
-	return min_distance;
+	return PointDistance(closest1, closest2, min_distance);
 }
 
 bool comparator(Point& lhs, Point& rhs) {
@@ -418,9 +467,10 @@ vector<Point> get_strip(vector<Point> points, double half, double width) {
 	return strip;
 }
 
-double get_min_dist_strip(vector<Point> strip) {
+PointDistance get_min_dist_strip(vector<Point> strip) {
 	double min_dist = DBL_MAX;
 	double half = strip.size() / 2;
+	Point closest1, closest2;
 
 	for (int i = 0; i < half; i++) {
 		for (int j = half; j < strip.size(); j++) {
@@ -428,18 +478,21 @@ double get_min_dist_strip(vector<Point> strip) {
 
 			if (curr_dist < min_dist) {
 				min_dist = curr_dist;
+
+				closest1 = strip[i];
+				closest2 = strip[j];
 			}
 		}
 	}
 
-	return min_dist;
+	return PointDistance(closest1, closest2, min_dist);
 }
 
 
-double get_min_dist_recur(int start, int end, vector<Point> points) {
+PointDistance get_min_dist_recur(int start, int end, vector<Point> points) {
 
 	if (end - start == 2) {
-		return points[start].get_distance_from(points[start + 1]);
+		return PointDistance(points[start], points[start + 1], points[start].get_distance_from(points[start + 1]));
 	} else if (end - start == 3) {
 		vector<Point> temp;
 
@@ -452,21 +505,16 @@ double get_min_dist_recur(int start, int end, vector<Point> points) {
 
 	double half = (start + end) / 2;
 
-	double left_min = get_min_dist_recur(start, half, points); // [0, 6)
-	double right_min = get_min_dist_recur(half, end, points); // [6, 12)
+	PointDistance left_min = get_min_dist_recur(start, half, points); // [0, 6)
+	PointDistance right_min = get_min_dist_recur(half, end, points); // [6, 12)
 
+	PointDistance min_value = left_min.min(right_min);
 
-//	cout << "mins: " << left_min << ", " << right_min << endl;
+	vector<Point> strip = get_strip(points, half, min_value.get_distance());
 
-	double min_dist = min(left_min, right_min);
+	PointDistance min_strip = get_min_dist_bruteforce(strip);
 
-//	cout << min_dist << endl;
-
-	vector<Point> strip = get_strip(points, half, min_dist);
-
-	double min_strip_dist = get_min_dist_bruteforce(strip);
-
-	return min(min_dist, min_strip_dist);
+	return min_value.min(min_strip);
 }
 
 std::string remove_characters(std::string str, char c) {
@@ -536,33 +584,27 @@ void part2(vector<Point> random_points) {
 
 	sort(random_points.begin(), random_points.end(), comparator);
 
-//	for (Point p : random_points) {
-//		cout << p.get_display_string() << endl;
-//	}
+	PointDistance min_dist = get_min_dist_recur(0, random_points.size(), random_points);
 
-	double min_dist = get_min_dist_recur(0, random_points.size(), random_points);
-
-	cout << min_dist << endl;
-
+	cout << min_dist.get_distance() << endl;
 }
 
 int main() {
 //	vector<Point> random_points_vector = read_points("points.txt");
-	for (int i = 0; i < 50; i++) {
-		vector<Point> random_points_vector = get_n_points_vector(60);
-		list<Point> random_points_list;
+	vector<Point> random_points_vector = get_n_points_vector(1000);
+	list<Point> random_points_list;
 
-		for (Point p : random_points_vector) {
-			random_points_list.push_back(p);
-		}
-
-		cout << endl;
-
-		part1(random_points_list);
-		part2(random_points_vector);
-
-		cout << endl;
+	for (Point p : random_points_vector) {
+		random_points_list.push_back(p);
 	}
+
+	cout << endl;
+
+	part1(random_points_list);
+	part2(random_points_vector);
+
+	cout << endl;
+
 
 	return 0;
 }
